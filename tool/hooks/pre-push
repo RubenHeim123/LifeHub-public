@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+# Blockiert "git push", wenn Analyse oder Tests fehlschlagen.
+# Aktivieren (einmalig pro Klon):  git config core.hooksPath tool/hooks
+# Im Notfall überspringen:         git push --no-verify
+echo "pre-push: führe tool/check.sh aus …"
+sh "$(git rev-parse --show-toplevel)/tool/check.sh"

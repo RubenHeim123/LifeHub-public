@@ -1,0 +1,36 @@
+name: CI
+
+# Läuft bei jedem Push und Pull Request. Ein Release darf nur von einem grünen Stand gebaut werden.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Analyse & Tests
+    # Fest statt ubuntu-latest (zieht ab 19.10.2026 auf Ubuntu 26 um)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.3'
+          channel: stable
+          cache: true
+
+      # sqflite_common_ffi braucht unter Linux die SQLite-Bibliothek.
+      - name: SQLite installieren
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
+
+      - name: Release-Check
+        run: sh tool/check.sh --coverage
+
+      - name: Coverage hochladen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/lcov.info
+          if-no-files-found: ignore
