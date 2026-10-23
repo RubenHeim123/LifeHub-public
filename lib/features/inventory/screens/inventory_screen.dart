@@ -13,7 +13,7 @@ import 'package:frontend/features/inventory/repositories/inventory_repository.da
 import 'package:frontend/features/inventory/screens/item_editor_screen.dart';
 import 'package:frontend/features/inventory/widgets/inventory_widgets.dart';
 
-/// Inventar zum schnellen Finden und Verwalten – für den Vorrat (Essen/Getränke)
+/// Inventar zum schnellen Finden und Verwalten – für den Vorrat (Essen, Getränke, Drogerie, Haushalt)
 /// und den Kleiderschrank. Suche, Status-Chips mit Zählern, Filter, Sortierung,
 /// Liste oder Raster, Wischgesten und Schnell-Hinzufügen.
 class InventoryScreen extends StatefulWidget {
@@ -94,6 +94,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   InventoryQuery _copy({
     String? search,
+    Object? kind = _keep,
     Object? category = _keep,
     Object? location = _keep,
     Object? condition = _keep,
@@ -102,6 +103,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }) {
     return InventoryQuery(
       search: search ?? _query.search,
+      kind: identical(kind, _keep) ? _query.kind : kind as InventoryKind?,
       category: identical(category, _keep) ? _query.category : category as String?,
       location: identical(location, _keep) ? _query.location : location as String?,
       condition: identical(condition, _keep) ? _query.condition : condition as ItemCondition?,
@@ -114,6 +116,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   bool get _hasFilters =>
       _query.search.isNotEmpty ||
+      _query.kind != null ||
       _query.category != null ||
       _query.location != null ||
       _query.condition != null ||
@@ -187,6 +190,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     sliver: SliverList.list(children: [
                       _searchField(),
                       const SizedBox(height: 10),
+                      if (_kindsPresent.length > 1) ...[
+                        _kindChips(),
+                        const SizedBox(height: 8),
+                      ],
                       _statusChips(),
                       const SizedBox(height: 8),
                       _filterRow(),
@@ -260,6 +267,41 @@ class _InventoryScreenState extends State<InventoryScreen> {
         onPressed: () => receipt(_load),
       ),
     ]);
+  }
+
+  /// Arten, die im Inventar vorkommen, in fester Reihenfolge.
+  List<InventoryKind> get _kindsPresent {
+    final present = {for (final i in _items) i.kind};
+    return InventoryKind.values.where(present.contains).toList();
+  }
+
+  /// Im Vorrat heißt „Pflege & Duft“ wie im Laden „Drogerie & Pflege“; Haushalt steckt in „Sonstiges“.
+  String _kindLabel(InventoryKind k) => widget.isWardrobe
+      ? k.label
+      : switch (k) {
+          InventoryKind.drink => 'Getränke',
+          InventoryKind.care => 'Drogerie & Pflege',
+          InventoryKind.other => 'Haushalt & Sonstiges',
+          _ => k.label,
+        };
+
+  /// Produktarten als Chips (Alle · Lebensmittel · Getränke · Drogerie & Pflege · …) mit Anzahl.
+  Widget _kindChips() {
+    final kinds = _kindsPresent;
+    return SizedBox(
+      height: 36,
+      child: ListView(scrollDirection: Axis.horizontal, children: [
+        for (final k in <InventoryKind?>[null, ...kinds]) ...[
+          AppChip(
+            label: k == null ? 'Alle Arten' : _kindLabel(k),
+            count: k == null ? _items.length : _items.where((i) => i.kind == k).length,
+            selected: _query.kind == k,
+            onTap: () => _setQuery((_) => _copy(kind: k)),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ]),
+    );
   }
 
   List<InventoryStatus> get _statuses => [
@@ -372,7 +414,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
         title: widget.isWardrobe ? 'Dein Kleiderschrank ist leer' : 'Dein Vorrat ist leer',
         message: widget.isWardrobe
             ? 'Füge Kleidung mit Foto, Größe und Zustand hinzu, um sie schnell wiederzufinden.'
-            : 'Trage Lebensmittel und Getränke mit Ablaufdatum ein – LifeHub erinnert dich rechtzeitig.',
+            : 'Hier landet alles, was du einkaufst: Lebensmittel, Getränke, Drogerie und Haushalt – '
+                'mit Ablaufdatum erinnert LifeHub dich rechtzeitig.',
       );
 
   String _subtitle(InventoryItem i) {

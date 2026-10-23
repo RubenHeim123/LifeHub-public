@@ -220,7 +220,7 @@ void main() {
     await disposeApp(tester, db);
   });
 
-  testWidgets('home shows today\'s meals and opens the recipe on tap', (tester) async {
+  testWidgets('home: tapping a meal logs it as eaten, again takes it back, long press opens the recipe', (tester) async {
     useTallScreen(tester);
     final user = await seedDb(tester, db, () async {
       final u = await createTestUser(db);
@@ -228,15 +228,48 @@ void main() {
       await repo().plan(uid: u.uid, recipe: catalogRecipe('linsen-bolognese')!, date: today(), meal: Meal.dinner);
       return u;
     });
+    Future<List<MealEntry>> entries() =>
+        readDb(tester, () async => (await NutritionRepository(db: db, inventory: InventoryRepository(db: db)).getDay(user.uid, today())).entries);
     await tester.pumpWidget(testApp(db, Home(user: user)));
     await pumpUntil(tester, find.text('Essen heute'));
     expect(find.text('Overnight Oats mit Beeren'), findsOneWidget);
     expect(find.text('07:30'), findsOneWidget);
     expect(find.text('18:30'), findsOneWidget);
 
-    await tester.tap(find.text('Linsen-Bolognese mit Vollkornspaghetti'));
-    await pumpUntil(tester, find.text('Als gegessen eintragen'));
-    expect(find.byType(RecipeScreen), findsOneWidget);
+    const dish = 'Linsen-Bolognese mit Vollkornspaghetti';
+    await tester.tap(find.text(dish));
+    await pumpUntil(tester, find.text('„$dish“ unter Abendessen eingetragen'));
+    expect(find.byType(RecipeScreen), findsNothing);
+    final logged = await entries();
+    expect(logged.single.name, dish);
+    expect(logged.single.macros.kcal, greaterThan(0));
+
+    await tester.tap(find.text(dish));
+    await pumpUntil(tester, find.text('„$dish“ aus dem Ernährungsprotokoll entfernt'));
+    expect(await entries(), isEmpty);
+
+    await tester.longPress(find.text(dish));
+    await pumpUntil(tester, find.byType(RecipeScreen));
+    await disposeApp(tester, db);
+  });
+
+  testWidgets('home: tapping a planned food logs it with its calories', (tester) async {
+    useTallScreen(tester);
+    final user = await seedDb(tester, db, () async {
+      final u = await createTestUser(db);
+      final skyr = await NutritionRepository(db: db, inventory: InventoryRepository(db: db))
+          .saveFood(Food(userid: u.uid, name: 'Skyr', per100: const Macros(kcal: 60, protein: 11)));
+      await repo().planFood(uid: u.uid, food: skyr, grams: 250, date: today(), meal: Meal.breakfast);
+      return u;
+    });
+    await tester.pumpWidget(testApp(db, Home(user: user)));
+    await pumpUntil(tester, find.text('Skyr'));
+    await tester.tap(find.text('Skyr'));
+    await pumpUntil(tester, find.text('„Skyr“ unter Frühstück eingetragen'));
+    expect(find.textContaining('Rezept zu'), findsNothing);
+    final day = await readDb(tester, () => NutritionRepository(db: db, inventory: InventoryRepository(db: db)).getDay(user.uid, today()));
+    final e = day.entries.single;
+    expect((e.name, e.grams, e.macros.kcal), ('Skyr', 250.0, 150.0));
     await disposeApp(tester, db);
   });
 

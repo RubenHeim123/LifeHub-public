@@ -341,9 +341,8 @@ class ListsRepository {
         where: 'userid = ? AND done = 1 AND is_deleted = 0', whereArgs: [uid]);
   }
 
-  /// Gekauften Artikel ins Inventar übernehmen (Vorrat, Kleiderschrank, Pflege & Duft)
-  /// und von der Liste nehmen – mit der tatsächlich gekauften Menge (z. B. 600 g statt 500 g).
-  /// Liefert die ID des neuen Inventar-Eintrags.
+  /// Gekauften Artikel in den Vorrat (Kleidung: Kleiderschrank) übernehmen und von der Liste nehmen –
+  /// mit der tatsächlich gekauften Menge (z. B. 600 g statt 500 g).
   /// Verschiebt einen (gekauften) Artikel ins Inventar. Liefert die neue Inventar-ID – oder `null`, wenn
   /// der Artikel schon verschoben oder gelöscht wurde (doppeltes Antippen bucht nichts doppelt).
   Future<int?> moveToInventory(ShoppingItem item) async {
@@ -355,6 +354,7 @@ class ListsRepository {
       userid: item.userid,
       kind: kind,
       name: item.name,
+      category: item.category.inventoryCategory,
       quantity: amount ?? 1,
       unit: unit,
       foodId: item.foodId,

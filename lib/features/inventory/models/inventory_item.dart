@@ -28,7 +28,7 @@ enum InventoryKind {
         clothing => const ['Oberteile', 'Hosen', 'Jacken', 'Schuhe', 'Sportkleidung', 'Unterwäsche', 'Sonstiges'],
         accessory => const ['Uhren', 'Schmuck', 'Taschen', 'Gürtel', 'Brillen', 'Mützen & Schals', 'Sonstiges'],
         care => const ['Parfüm', 'Deo', 'Hautpflege', 'Haarpflege', 'Rasur', 'Zahnpflege', 'Sonstiges'],
-        other => const ['Sonstiges'],
+        other => const ['Haushalt', 'Sonstiges'],
       };
 
   List<String> get suggestedLocations => switch (this) {
@@ -258,6 +258,9 @@ enum InventorySort {
 /// Suche, Filter und Sortierung – reine Funktion, damit sie ohne UI testbar ist.
 class InventoryQuery {
   final String search;
+
+  /// Nur eine Art (z. B. Drogerie im Vorrat); `null` = alle.
+  final InventoryKind? kind;
   final String? category;
   final String? location;
   final ItemCondition? condition;
@@ -269,6 +272,7 @@ class InventoryQuery {
 
   const InventoryQuery({
     this.search = '',
+    this.kind,
     this.category,
     this.location,
     this.condition,
@@ -285,6 +289,7 @@ class InventoryQuery {
           .toLowerCase();
       if (!haystack.contains(q)) return false;
     }
+    if (kind != null && i.kind != kind) return false;
     if (category != null && i.category != category) return false;
     if (location != null && i.location != location) return false;
     if (condition != null && i.condition != condition) return false;

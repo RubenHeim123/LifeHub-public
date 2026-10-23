@@ -85,10 +85,10 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
         onChanged: _load,
       );
 
-  /// Abhaken: Bei Artikeln für Vorrat/Kleiderschrank fragt ein Dialog, was tatsächlich gekauft wurde
-  /// (Packung, eigene Menge, Barcode) – danach liegt der Artikel direkt dort. Wieder öffnen geht ohne Dialog.
+  /// Abhaken: Ein Dialog fragt, was tatsächlich gekauft wurde (Packung, eigene Menge, Barcode) – danach
+  /// liegt der Artikel direkt im Vorrat (Kleidung im Kleiderschrank). Wieder öffnen geht ohne Dialog.
   Future<void> _toggle(ShoppingItem item) async {
-    if (item.done || !item.category.tracksInventory) {
+    if (item.done) {
       await _repo.toggleShopping(item);
       _load();
       return;
@@ -257,10 +257,6 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
   /// Gruppe abhaken: der Dialog kommt für jede Menge einzeln („Abbrechen“ hört auf).
   Future<void> _toggleGroup(ShoppingGroup g) async {
     for (final i in g.items.where((i) => !i.done)) {
-      if (!i.category.tracksInventory) {
-        await _repo.toggleShopping(i);
-        continue;
-      }
       if (!mounted) break;
       final result = await askBought(context, i);
       if (result == null || !mounted) break;
@@ -293,7 +289,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
     final t = Theme.of(context).textTheme;
     return SwipeTile(
       id: 'shop-${i.id}',
-      startAction: i.done && i.category.tracksInventory
+      startAction: i.done
           ? SwipeAction(label: i.category.inventoryTarget, icon: Icons.move_to_inbox_rounded, onPressed: () => _moveToInventory(i))
           : null,
       onEdit: () => _edit(i),

@@ -101,7 +101,7 @@ void main() {
     await disposeApp(tester, db);
   });
 
-  testWidgets('shopping list: done items collapse and can be cleared', (tester) async {
+  testWidgets('shopping list: household items go into the pantry too', (tester) async {
     useTallScreen(tester);
     final user = await seedDb(tester, db, () async {
       final u = await createTestUser(db);
@@ -111,11 +111,45 @@ void main() {
     await tester.pumpWidget(testApp(db, ShoppingListScreen(user: user)));
     await pumpUntil(tester, find.text('Spülmittel'));
     await tester.tap(find.byType(AppCheck));
-    await pumpUntil(tester, find.text('Erledigt (1)'));
-    expect(find.text('Spülmittel'), findsNothing); // eingeklappt
-    await tester.tap(find.text('Erledigte entfernen'));
-    await pumpUntil(tester, find.textContaining('1 erledigte Artikel entfernt'));
+    await pumpUntil(tester, find.text('Was hast du gekauft?'));
+    await tester.tap(find.text('Wie geplant')); // ohne Mengenangabe: 1 Stück
+    await pumpUntil(tester, find.textContaining('„Spülmittel“ ist jetzt im Vorrat'));
+    await pumpUntilGone(tester, find.text('Spülmittel'));
     expect(await readDb(tester, () => lists().getShopping(user.uid)), isEmpty);
+    // Haushalt landet im Vorrat – als „Sonstiges“ mit der Kategorie „Haushalt“
+    final pantry = await readDb(tester, () => InventoryRepository(db: db).getItems(user.uid));
+    expect((pantry.single.name, pantry.single.kind, pantry.single.category), ('Spülmittel', InventoryKind.other, 'Haushalt'));
+    await disposeApp(tester, db);
+  });
+
+  testWidgets('shopping list: drugstore items go into the pantry and show up there by kind', (tester) async {
+    useTallScreen(tester);
+    final user = await seedDb(tester, db, () async {
+      final u = await createTestUser(db);
+      await lists().saveShopping(ShoppingItem(userid: u.uid, name: 'Shampoo', category: ShoppingCategory.care));
+      await InventoryRepository(db: db).createItem(InventoryItem(userid: u.uid, kind: InventoryKind.food, name: 'Reis'));
+      return u;
+    });
+    await tester.pumpWidget(testApp(db, ShoppingListScreen(user: user)));
+    await pumpUntil(tester, find.text('Shampoo'));
+    await tester.tap(find.byType(AppCheck));
+    await pumpUntil(tester, find.text('Was hast du gekauft?'));
+    await tester.tap(find.text('Wie geplant')); // ohne Mengenangabe: 1 Stück
+    await pumpUntil(tester, find.textContaining('„Shampoo“ ist jetzt im Vorrat'));
+
+    await tester.pumpWidget(testApp(
+      db,
+      InventoryScreen(
+        user: user,
+        kinds: const {InventoryKind.food, InventoryKind.drink, InventoryKind.care, InventoryKind.other},
+        addKind: InventoryKind.food,
+      ),
+    ));
+    await pumpUntil(tester, find.text('Shampoo'));
+    expect(find.text('Reis'), findsOneWidget);
+    await tester.tap(find.text('Drogerie & Pflege'));
+    await pumpUntilGone(tester, find.text('Reis'));
+    expect(find.text('Shampoo'), findsOneWidget);
     await disposeApp(tester, db);
   });
 

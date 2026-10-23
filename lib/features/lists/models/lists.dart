@@ -18,14 +18,11 @@ enum ShoppingCategory {
   final IconData icon;
   final InventoryKind inventoryKind;
 
-  /// Übernahme ins Inventar lohnt sich (Vorrat, Kleiderschrank, Pflege).
-  bool get tracksInventory => this != household && this != other;
+  /// Wohin ein gekaufter Artikel wandert: Kleidung in den Kleiderschrank, alles andere in den Vorrat.
+  String get inventoryTarget => inventoryKind == InventoryKind.clothing ? 'Kleiderschrank' : 'Vorrat';
 
-  String get inventoryTarget => switch (inventoryKind) {
-        InventoryKind.clothing => 'Kleiderschrank',
-        InventoryKind.care => 'Pflege & Duft',
-        _ => 'Vorrat',
-      };
+  /// Kategorie des Vorratseintrags, wenn die Art allein sie nicht zeigt (Haushalt landet unter „Sonstiges“).
+  String? get inventoryCategory => this == household ? 'Haushalt' : null;
 
   static ShoppingCategory fromDb(Object? v) => values.firstWhere((c) => c.dbValue == v, orElse: () => other);
 

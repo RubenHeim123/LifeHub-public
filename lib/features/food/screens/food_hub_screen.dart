@@ -35,8 +35,9 @@ class FoodHubScreen extends StatelessWidget {
             FoodSection.shopping => HubTab('Einkauf', (_) => ShoppingListScreen(user: user)),
             FoodSection.pantry => HubTab('Vorrat', (_) => InventoryScreen(
                   user: user,
-                  kinds: const {InventoryKind.food, InventoryKind.drink, InventoryKind.other},
+                  kinds: const {InventoryKind.food, InventoryKind.drink, InventoryKind.care, InventoryKind.other},
                   addKind: InventoryKind.food,
+                  addKinds: const [InventoryKind.food, InventoryKind.drink, InventoryKind.care, InventoryKind.other],
                   onScanBarcode: () => scanPantryItem(context, user.uid),
                   onScanReceipt: (onSaved) => scanReceipt(context, userid: user.uid, onSaved: onSaved),
                 )),

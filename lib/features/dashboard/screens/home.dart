@@ -18,6 +18,7 @@ import 'package:frontend/features/calendar/screens/add_update_appointment_screen
 import 'package:frontend/features/dashboard/widgets/global_search_delegate.dart';
 import 'package:frontend/features/finance/models/transaction_type.dart';
 import 'package:frontend/features/fitness/models/workout.dart';
+import 'package:frontend/features/fitness/repositories/nutrition_repository.dart';
 import 'package:frontend/features/fitness/repositories/workout_repository.dart';
 import 'package:frontend/features/auth/models/user.dart';
 import 'package:frontend/features/finance/repositories/transaction_repository.dart';
@@ -670,14 +671,72 @@ class _HomeState extends State<Home> {
                   )),
               subtitle: Text('${p.meal.label}${p == next ? ' · als Nächstes' : ''}', style: t.labelMedium),
               trailing: Text(formatMinutes(p.minutes), style: t.labelMedium),
-              onTap: () async {
-                await openPlannedMeal(context, _user.uid, p);
-                _load();
-              },
+              onTap: () => _toggleMeal(p),
+              onLongPress: () => _openMeal(p),
             ),
         ]),
       ),
     ]);
+  }
+
+  /// Antippen: Gericht oder Lebensmittel als gegessen eintragen – bzw. zurücknehmen, wenn es schon
+  /// eingetragen ist. Die Snackbar bietet „Rückgängig“.
+  Future<void> _toggleMeal(PlannedMeal p) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final updated = await runGuarded(context, () => _setEaten(p, !p.eaten));
+    if (updated == null || !mounted) return;
+    _replaceMeal(updated);
+    _load();
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(SnackBar(
+      content: Text(updated.eaten ? '„${p.name}“ unter ${p.meal.label} eingetragen' : '„${p.name}“ aus dem Ernährungsprotokoll entfernt'),
+      action: SnackBarAction(
+        label: 'Rückgängig',
+        onPressed: () async {
+          if (!mounted) return;
+          final back = await _setEaten(updated, !updated.eaten);
+          if (!mounted) return;
+          if (back != null) _replaceMeal(back);
+          _load();
+        },
+      ),
+    ));
+  }
+
+  /// Zeigt den neuen Stand sofort – das Neuladen von Heute dauert einen Moment.
+  void _replaceMeal(PlannedMeal updated) =>
+      setState(() => _meals = [for (final m in _meals) m.id == updated.id ? updated : m]);
+
+  /// Trägt [p] ein ([eat]) oder nimmt es zurück. Liefert `null`, wenn Rezept bzw. Lebensmittel fehlen.
+  Future<PlannedMeal?> _setEaten(PlannedMeal p, bool eat) async {
+    final repo = context.read<MealPlanRepository>();
+    final nutrition = context.read<NutritionRepository>();
+    final messenger = ScaffoldMessenger.of(context);
+    if (!eat) return repo.unmarkEaten(p);
+    if (p.foodId != null) {
+      final food = await nutrition.getFood(p.foodId!);
+      if (food == null) {
+        messenger.showSnackBar(SnackBar(content: Text('Das Lebensmittel „${p.name}“ gibt es nicht mehr.')));
+        return null;
+      }
+      return repo.markFoodEaten(p, food);
+    }
+    final recipe = await repo.recipeFor(p);
+    if (recipe == null) {
+      messenger.showSnackBar(SnackBar(content: Text('Das Rezept zu „${p.name}“ wurde gelöscht.')));
+      return null;
+    }
+    return repo.markEaten(p, recipe);
+  }
+
+  /// Lange drücken: Rezept öffnen; ein eingeplantes Lebensmittel zeigt der Essensplan.
+  Future<void> _openMeal(PlannedMeal p) async {
+    if (p.foodId != null) {
+      widget.onTabNav?.call(AppTab.food, FoodSection.mealPlan);
+      return;
+    }
+    await openPlannedMeal(context, _user.uid, p);
+    _load();
   }
 
   Widget _expiringSection(BuildContext context) {
